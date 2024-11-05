@@ -1,0 +1,14 @@
+target/*
+!.mvn/wrapper/maven-wrapper.jar
+# Allow the Coverage report and built jars
+!target/*.jar
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+
+### VS Code ###
+.vscode/
