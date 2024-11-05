@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CryptoController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CryptoRecommendationsService</a> &gt; <a href="index.source.html" class="el_package">com.example.cryptorecommendationsservice.controller</a> &gt; <span class="el_source">CryptoController.java</span></div><h1>CryptoController.java</h1><pre class="source lang-java linenums">package com.example.cryptorecommendationsservice.controller;
+
+import com.example.cryptorecommendationsservice.dto.CryptoNormalizedRange;
+import com.example.cryptorecommendationsservice.dto.CryptoStatsDTO;
+import com.example.cryptorecommendationsservice.dto.CryptoStatsSimpleDTO;
+import com.example.cryptorecommendationsservice.service.CryptoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/crypto&quot;)
+public class CryptoController {
+
+    private final CryptoService cryptoService;
+
+    @Autowired
+<span class="fc" id="L25">    public CryptoController(CryptoService cryptoService) {</span>
+<span class="fc" id="L26">        this.cryptoService = cryptoService;</span>
+<span class="fc" id="L27">    }</span>
+
+    /**
+     * Endpoint to retrieve all supported crypto symbols.
+     *
+     * @return List of supported crypto symbols.
+     */
+    @Operation(summary = &quot;Get all supported crypto symbols&quot;, description = &quot;Retrieves a list of all supported cryptocurrency symbols.&quot;)
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;List of supported cryptos retrieved successfully&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;No supported cryptos found&quot;)
+    })
+    @GetMapping(&quot;/supported&quot;)
+    public List&lt;String&gt; getSupportedCryptos() {
+<span class="fc" id="L41">        return cryptoService.getAllCryptoSymbols();</span>
+    }
+
+    /**
+     * Endpoint to retrieve stats (oldest, newest, min, max prices) for a specific crypto symbol.
+     *
+     * @param symbol The crypto symbol.
+     * @return CryptoStatsDTO containing stats for the specified symbol.
+     */
+    @Operation(summary = &quot;Get stats for a specific crypto&quot;, description = &quot;Retrieves the oldest, newest, minimum, and maximum prices for a specified cryptocurrency symbol.&quot;)
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Stats retrieved successfully for the specified crypto&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Crypto not found&quot;)
+    })
+    @GetMapping(&quot;/{symbol}/stats&quot;)
+    public CryptoStatsSimpleDTO getCryptoStats(@Parameter(description = &quot;Symbol of the crypto to retrieve stats for&quot;) @PathVariable String symbol) {
+<span class="fc" id="L57">        return cryptoService.getCryptoStats(symbol);</span>
+    }
+
+    /**
+     * Endpoint to retrieve aggregated stats for all cryptos.
+     *
+     * @return List of CryptoStatsDTO for all cryptos.
+     */
+    @Operation(summary = &quot;Get aggregated stats for all cryptos&quot;, description = &quot;Retrieves oldest, newest, minimum, and maximum prices for all supported cryptocurrencies.&quot;)
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Aggregated stats retrieved successfully&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;No crypto data found&quot;)
+    })
+    @GetMapping(&quot;/all-stats&quot;)
+    public List&lt;CryptoStatsDTO&gt; getAllCryptoStats() {
+<span class="fc" id="L72">        return cryptoService.getAllCryptoStats();</span>
+    }
+
+    /**
+     * Endpoint to retrieve a sorted list of cryptos by normalized range (descending).
+     *
+     * @return List of CryptoNormalizedRange sorted by normalized range.
+     */
+    @Operation(summary = &quot;Get cryptos sorted by normalized range&quot;, description = &quot;Returns a descending sorted list of cryptos based on their normalized range (max - min / min).&quot;)
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Sorted list of cryptos by normalized range retrieved successfully&quot;)
+    })
+    @GetMapping(&quot;/normalized-range&quot;)
+    public List&lt;CryptoNormalizedRange&gt; getCryptosByNormalizedRange() {
+<span class="fc" id="L86">        return cryptoService.getCryptosSortedByNormalizedRange();</span>
+    }
+
+    /**
+     * Endpoint to retrieve the crypto with the highest normalized range for a specific date.
+     *
+     * @param date The date for which to find the crypto with the highest normalized range.
+     * @return CryptoNormalizedRange for the crypto with the highest normalized range on the specified date.
+     */
+    @Operation(summary = &quot;Get crypto with the highest normalized range for a date&quot;, description = &quot;Finds and returns the crypto with the highest normalized range on a specified date.&quot;)
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;Crypto with highest normalized range found successfully&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;No crypto data found for the specified date&quot;)
+    })
+    @GetMapping(&quot;/highest-normalized-range&quot;)
+    public CryptoNormalizedRange getHighestNormalizedRangeForDate(
+            @Parameter(description = &quot;Date for which to find the highest normalized range&quot;, example = &quot;2023-01-01&quot;)
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+<span class="fc" id="L104">        return cryptoService.getHighestNormalizedRangeForDate(date);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

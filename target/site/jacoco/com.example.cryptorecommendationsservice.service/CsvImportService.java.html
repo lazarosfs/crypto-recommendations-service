@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CsvImportService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CryptoRecommendationsService</a> &gt; <a href="index.source.html" class="el_package">com.example.cryptorecommendationsservice.service</a> &gt; <span class="el_source">CsvImportService.java</span></div><h1>CsvImportService.java</h1><pre class="source lang-java linenums">package com.example.cryptorecommendationsservice.service;
+
+import com.example.cryptorecommendationsservice.model.Crypto;
+import com.example.cryptorecommendationsservice.model.CryptoPrice;
+import com.example.cryptorecommendationsservice.repository.CryptoPriceRepository;
+import com.example.cryptorecommendationsservice.repository.CryptoRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * Service for importing cryptocurrency data from CSV files.
+ */
+@Service
+public class CsvImportService {
+
+<span class="fc" id="L25">    private static final Logger logger = LoggerFactory.getLogger(CsvImportService.class);</span>
+
+    private final CryptoRepository cryptoRepository;
+    private final CryptoPriceRepository cryptoPriceRepository;
+
+    @Autowired
+<span class="fc" id="L31">    public CsvImportService(CryptoRepository cryptoRepository, CryptoPriceRepository cryptoPriceRepository) {</span>
+<span class="fc" id="L32">        this.cryptoRepository = cryptoRepository;</span>
+<span class="fc" id="L33">        this.cryptoPriceRepository = cryptoPriceRepository;</span>
+<span class="fc" id="L34">    }</span>
+
+    /**
+     * Imports cryptocurrency data from the provided InputStream.
+     *
+     * @param inputStream The InputStream containing CSV data.
+     * @throws RuntimeException if an error occurs while processing the CSV file.
+     */
+    public void importCryptoData(InputStream inputStream) {
+<span class="fc" id="L43">        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {</span>
+            String line;
+<span class="fc bfc" id="L45" title="All 2 branches covered.">            while ((line = reader.readLine()) != null) {</span>
+                // Skip header line if present
+<span class="fc bfc" id="L47" title="All 2 branches covered.">                if (line.trim().toLowerCase().startsWith(&quot;timestamp&quot;)) {</span>
+<span class="fc" id="L48">                    continue;</span>
+                }
+
+                // Call parseAndSaveLine to process and save each CSV line
+<span class="fc" id="L52">                parseAndSaveLine(line);</span>
+            }
+<span class="nc" id="L54">        } catch (Exception e) {</span>
+<span class="nc" id="L55">            logger.error(&quot;Error processing CSV file: {}&quot;, e.getMessage(), e);</span>
+<span class="nc" id="L56">            throw new RuntimeException(&quot;Failed to process CSV file&quot;, e); // Rethrow as a runtime exception</span>
+<span class="fc" id="L57">        }</span>
+<span class="fc" id="L58">    }</span>
+
+    /**
+     * Parses a line from the CSV file and saves the corresponding cryptocurrency data.
+     *
+     * @param line The line from the CSV file.
+     * @throws IllegalArgumentException if the line does not contain the required number of columns or if parsing fails.
+     */
+    private void parseAndSaveLine(String line) {
+<span class="fc" id="L67">        String[] columns = line.split(&quot;,&quot;);</span>
+
+        // Validate column count
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">        if (columns.length &lt; 3) {</span>
+<span class="nc" id="L71">            throw new IllegalArgumentException(&quot;Line does not contain the required number of columns (3)&quot;);</span>
+        }
+
+        try {
+<span class="fc" id="L75">            long timestamp = parseLong(columns[0].trim());</span>
+<span class="fc" id="L76">            String symbol = parseString(columns[1].trim());</span>
+<span class="fc" id="L77">            BigDecimal price = parseBigDecimal(columns[2].trim());</span>
+
+            // Check if crypto already exists; if not, create a new one
+<span class="fc" id="L80">            Crypto crypto = cryptoRepository.findBySymbol(symbol)</span>
+<span class="fc" id="L81">                    .orElseGet(() -&gt; {</span>
+<span class="nc" id="L82">                        Crypto newCrypto = new Crypto();</span>
+<span class="nc" id="L83">                        newCrypto.setSymbol(symbol);</span>
+<span class="nc" id="L84">                        logger.info(&quot;Adding new crypto symbol to database: {}&quot;, symbol);</span>
+<span class="nc" id="L85">                        return cryptoRepository.save(newCrypto);</span>
+                    });
+
+            // Save the crypto price
+<span class="fc" id="L89">            CryptoPrice cryptoPrice = new CryptoPrice();</span>
+<span class="fc" id="L90">            cryptoPrice.setTimestamp(timestamp);</span>
+<span class="fc" id="L91">            cryptoPrice.setPrice(price);</span>
+<span class="fc" id="L92">            cryptoPrice.setCrypto(crypto);</span>
+
+<span class="fc" id="L94">            cryptoPriceRepository.save(cryptoPrice);</span>
+<span class="fc" id="L95">            logger.info(&quot;Saved price data for crypto symbol {} at timestamp {} with price {}&quot;, symbol, timestamp, price);</span>
+
+<span class="nc" id="L97">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L98">            logger.error(&quot;Error processing line: {}&quot;, line, e);</span>
+<span class="nc" id="L99">            throw e; // Rethrow to indicate a parsing error</span>
+<span class="nc" id="L100">        } catch (Exception e) {</span>
+<span class="nc" id="L101">            logger.error(&quot;Unexpected error while processing line: {}&quot;, line, e);</span>
+<span class="nc" id="L102">            throw new RuntimeException(&quot;Failed to process line: &quot; + line, e);</span>
+<span class="fc" id="L103">        }</span>
+<span class="fc" id="L104">    }</span>
+
+    /**
+     * Parses a String value into a long.
+     *
+     * @param value The string value to parse.
+     * @return The parsed long value.
+     * @throws IllegalArgumentException if the value cannot be parsed as a long.
+     */
+    private long parseLong(String value) {
+        try {
+<span class="fc" id="L115">            return Long.parseLong(value);</span>
+<span class="nc" id="L116">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L117">            throw new IllegalArgumentException(&quot;Invalid timestamp format: &quot; + value, e);</span>
+        }
+    }
+
+    /**
+     * Parses a String value into a BigDecimal.
+     *
+     * @param value The string value to parse.
+     * @return The parsed BigDecimal value.
+     * @throws IllegalArgumentException if the value cannot be parsed as a BigDecimal.
+     */
+    private BigDecimal parseBigDecimal(String value) {
+        try {
+<span class="fc" id="L130">            return new BigDecimal(value).setScale(8, RoundingMode.HALF_UP); // Setting scale to 8 for precision</span>
+<span class="nc" id="L131">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L132">            throw new IllegalArgumentException(&quot;Invalid price format: &quot; + value, e);</span>
+        }
+    }
+
+    /**
+     * Validates and returns a String value.
+     *
+     * @param value The string value to validate.
+     * @return The validated string value.
+     * @throws IllegalArgumentException if the value is null or empty.
+     */
+    private String parseString(String value) {
+<span class="pc bpc" id="L144" title="2 of 4 branches missed.">        if (value == null || value.isEmpty()) {</span>
+<span class="nc" id="L145">            throw new IllegalArgumentException(&quot;Invalid symbol format: value is missing&quot;);</span>
+        }
+<span class="fc" id="L147">        return value;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

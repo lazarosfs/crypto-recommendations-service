@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CryptoService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CryptoRecommendationsService</a> &gt; <a href="index.source.html" class="el_package">com.example.cryptorecommendationsservice.service</a> &gt; <span class="el_source">CryptoService.java</span></div><h1>CryptoService.java</h1><pre class="source lang-java linenums">package com.example.cryptorecommendationsservice.service;
+
+import com.example.cryptorecommendationsservice.dto.CryptoNormalizedRange;
+import com.example.cryptorecommendationsservice.dto.CryptoStatsDTO;
+import com.example.cryptorecommendationsservice.dto.CryptoStatsSimpleDTO;
+import com.example.cryptorecommendationsservice.exception.ResourceNotFoundException;
+import com.example.cryptorecommendationsservice.model.Crypto;
+import com.example.cryptorecommendationsservice.repository.CryptoPriceRepository;
+import com.example.cryptorecommendationsservice.repository.CryptoRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class CryptoService {
+
+<span class="fc" id="L30">    private static final Logger logger = LoggerFactory.getLogger(CryptoService.class);</span>
+
+    private final CryptoRepository cryptoRepository;
+    private final CryptoPriceRepository cryptoPriceRepository;
+
+    @Autowired
+<span class="fc" id="L36">    public CryptoService(CryptoRepository cryptoRepository, CryptoPriceRepository cryptoPriceRepository) {</span>
+<span class="fc" id="L37">        this.cryptoRepository = cryptoRepository;</span>
+<span class="fc" id="L38">        this.cryptoPriceRepository = cryptoPriceRepository;</span>
+<span class="fc" id="L39">    }</span>
+
+    /**
+     * Fetches all available crypto symbols from the repository.
+     *
+     * @return List of all crypto symbols.
+     */
+    @Operation(summary = &quot;Fetch all supported crypto symbols&quot;)
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = &quot;200&quot;, description = &quot;List of all supported crypto symbols&quot;),
+            @ApiResponse(responseCode = &quot;404&quot;, description = &quot;No crypto symbols found&quot;)
+    })
+    public List&lt;String&gt; getAllCryptoSymbols() {
+<span class="fc" id="L52">        logger.info(&quot;Fetching all supported crypto symbols&quot;);</span>
+<span class="fc" id="L53">        List&lt;String&gt; symbols = cryptoRepository.findAll().stream()</span>
+<span class="fc" id="L54">                .map(Crypto::getSymbol)</span>
+<span class="fc" id="L55">                .collect(Collectors.toList());</span>
+<span class="fc" id="L56">        logger.info(&quot;Found {} supported cryptos&quot;, symbols.size());</span>
+<span class="fc" id="L57">        return symbols;</span>
+    }
+
+    /**
+     * Fetches the oldest, newest, minimum, and maximum prices for a specific crypto symbol.
+     *
+     * @param symbol The crypto symbol.
+     * @return CryptoStatsDTO containing stats for the specified symbol.
+     */
+    @Operation(summary = &quot;Get stats for a specific crypto symbol&quot;)
+    public CryptoStatsSimpleDTO getCryptoStats(String symbol) {
+<span class="fc" id="L68">        logger.info(&quot;Fetching stats for crypto {}&quot;, symbol);</span>
+
+        // Fetching the result which is expected to be an Object[] containing one element: an array of stats
+<span class="fc" id="L71">        Object[] resultArray = cryptoPriceRepository.findStatsBySymbol(symbol)</span>
+<span class="fc" id="L72">                .orElseThrow(() -&gt; {</span>
+<span class="nc" id="L73">                    logger.error(&quot;No price data found for crypto {}&quot;, symbol);</span>
+<span class="nc" id="L74">                    return new ResourceNotFoundException(&quot;No price data found for crypto: &quot; + symbol);</span>
+                });
+
+        // The actual data we need is in resultArray[0], which is an Object[] containing the details
+<span class="fc" id="L78">        Object[] result = (Object[]) resultArray[0];</span>
+
+<span class="fc" id="L80">        logger.debug(&quot;Retrieved result for {}: {}&quot;, symbol, Arrays.toString(result));</span>
+
+        // Ensure the result has the expected length
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if (result.length &lt; 5) { // Expecting symbol, minPrice, maxPrice, oldestPrice, newestPrice</span>
+<span class="nc" id="L84">            logger.error(&quot;Unexpected result length for crypto stats: {}&quot;, result.length);</span>
+<span class="nc" id="L85">            throw new ResourceNotFoundException(&quot;Unexpected result format for crypto stats&quot;);</span>
+        }
+
+        try {
+<span class="fc" id="L89">            String fetchedSymbol = (String) result[0];  // Assuming index 0 is symbol</span>
+<span class="fc" id="L90">            BigDecimal minPrice = (BigDecimal) result[1]; // Assuming index 1 is minPrice</span>
+<span class="fc" id="L91">            BigDecimal maxPrice = (BigDecimal) result[2]; // Assuming index 2 is maxPrice</span>
+<span class="fc" id="L92">            BigDecimal oldestPrice = (BigDecimal) result[3]; // Assuming index 3 is oldestPrice</span>
+<span class="fc" id="L93">            BigDecimal newestPrice = (BigDecimal) result[4]; // Assuming index 4 is newestPrice</span>
+
+<span class="fc" id="L95">            logger.debug(&quot;Stats for {}: oldest={}, newest={}, min={}, max={}&quot;, fetchedSymbol, oldestPrice, newestPrice, minPrice, maxPrice);</span>
+
+            // Return the DTO with normalizedRange set to null
+<span class="fc" id="L98">            return new CryptoStatsSimpleDTO(fetchedSymbol, oldestPrice, newestPrice, minPrice, maxPrice);</span>
+<span class="nc" id="L99">        } catch (ArrayIndexOutOfBoundsException | ClassCastException e) {</span>
+<span class="nc" id="L100">            logger.error(&quot;Data format error for crypto stats: {}&quot;, e.getMessage(), e);</span>
+<span class="nc" id="L101">            throw new ResourceNotFoundException(&quot;Data format error for crypto stats&quot;);</span>
+        }
+    }
+
+    /**
+     * Fetches aggregated stats (min, max, oldest, newest prices) for all cryptos.
+     *
+     * @return List of CryptoStatsDTO for all cryptos.
+     */
+    @Operation(summary = &quot;Get aggregated stats for all cryptos&quot;)
+    public List&lt;CryptoStatsDTO&gt; getAllCryptoStats() {
+<span class="fc" id="L112">        logger.info(&quot;Fetching aggregated stats for all cryptos&quot;);</span>
+
+<span class="fc" id="L114">        List&lt;Object[]&gt; results = cryptoPriceRepository.findAllStats();</span>
+
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">        if (results.isEmpty()) {</span>
+<span class="nc" id="L117">            logger.error(&quot;No price data found for any crypto&quot;);</span>
+<span class="nc" id="L118">            throw new ResourceNotFoundException(&quot;No crypto data found.&quot;);</span>
+        }
+
+        // Map each result row to a CryptoStatsDTO
+<span class="fc" id="L122">        return results.stream()</span>
+<span class="fc" id="L123">                .map(this::getCryptoStatsDTO)</span>
+<span class="fc" id="L124">                .sorted(Comparator.comparing(CryptoStatsDTO::getNormalizedRange).reversed()) // Sort by normalized range in descending order</span>
+<span class="fc" id="L125">                .collect(Collectors.toList());</span>
+    }
+
+    /**
+     * Converts an array of database query results into a CryptoStatsDTO.
+     *
+     * @param result An array of objects representing the query result, expected to contain:
+     *               - [0] String symbol
+     *               - [1] BigDecimal minPrice
+     *               - [2] BigDecimal maxPrice
+     *               - [3] BigDecimal oldestPrice
+     *               - [4] BigDecimal newestPrice
+     *               - [5] BigDecimal normalizedRange
+     * @return A CryptoStatsDTO object populated with the data from the result array.
+     * @throws ClassCastException if the data types in the result array do not match the expected types.
+     * @throws ResourceNotFoundException if there is a data format error when processing the result.
+     */
+    private CryptoStatsDTO getCryptoStatsDTO(Object[] result) {
+        try {
+<span class="fc" id="L144">            String symbol = (String) result[0];</span>
+<span class="fc" id="L145">            BigDecimal minPrice = (BigDecimal) result[1];</span>
+<span class="fc" id="L146">            BigDecimal maxPrice = (BigDecimal) result[2];</span>
+<span class="fc" id="L147">            BigDecimal oldestPrice = (BigDecimal) result[3];</span>
+<span class="fc" id="L148">            BigDecimal newestPrice = (BigDecimal) result[4];</span>
+<span class="fc" id="L149">            BigDecimal normalizedRange = (BigDecimal) result[5];</span>
+
+<span class="fc" id="L151">            logger.debug(&quot;Stats for {}: oldest={}, newest={}, min={}, max={}, normalizedRange={}&quot;,</span>
+                    symbol, oldestPrice, newestPrice, minPrice, maxPrice, normalizedRange);
+<span class="fc" id="L153">            return new CryptoStatsDTO(symbol, oldestPrice, newestPrice, minPrice, maxPrice, normalizedRange);</span>
+<span class="nc" id="L154">        } catch (ClassCastException e) {</span>
+<span class="nc" id="L155">            logger.error(&quot;Error casting result for crypto stats: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L156">            throw new ResourceNotFoundException(&quot;Data format error for crypto stats&quot;);</span>
+        }
+    }
+
+    /**
+     * Calculates and returns a sorted list of cryptos based on their normalized range, in descending order.
+     *
+     * @return List of CryptoNormalizedRange sorted by normalized range.
+     */
+    @Operation(summary = &quot;Get all cryptos sorted by normalized range (max - min / min)&quot;)
+    public List&lt;CryptoNormalizedRange&gt; getCryptosSortedByNormalizedRange() {
+<span class="fc" id="L167">        logger.info(&quot;Calculating normalized range for all cryptos&quot;);</span>
+
+<span class="fc" id="L169">        List&lt;CryptoStatsDTO&gt; statsList = getAllCryptoStats();</span>
+
+<span class="fc" id="L171">        return statsList.stream()</span>
+<span class="fc" id="L172">                .map(stats -&gt; {</span>
+<span class="fc" id="L173">                    BigDecimal minPrice = stats.getMinPrice();</span>
+<span class="fc" id="L174">                    BigDecimal maxPrice = stats.getMaxPrice();</span>
+
+                    // Calculate normalized range: (max - min) / min
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">                    BigDecimal normalizedRange = (minPrice.compareTo(BigDecimal.ZERO) &gt; 0) ?</span>
+<span class="fc" id="L178">                            maxPrice.subtract(minPrice).divide(minPrice, 8, RoundingMode.HALF_UP) :</span>
+<span class="pc" id="L179">                            BigDecimal.ZERO;</span>
+
+<span class="fc" id="L181">                    logger.debug(&quot;Normalized range for {}: {}&quot;, stats.getSymbol(), normalizedRange);</span>
+<span class="fc" id="L182">                    return new CryptoNormalizedRange(stats.getSymbol(), normalizedRange);</span>
+                })
+<span class="fc" id="L184">                .sorted(Comparator.comparing(CryptoNormalizedRange::getNormalizedRange).reversed())</span>
+<span class="fc" id="L185">                .collect(Collectors.toList());</span>
+    }
+
+    /**
+     * Fetches the crypto with the highest normalized range for a specific date.
+     *
+     * @param date The date for which to calculate the highest normalized range.
+     * @return CryptoNormalizedRange for the crypto with the highest normalized range on the specified date.
+     */
+    @Operation(summary = &quot;Get the crypto with the highest normalized range for a specific date&quot;)
+    public CryptoNormalizedRange getHighestNormalizedRangeForDate(LocalDate date) {
+<span class="fc" id="L196">        logger.info(&quot;Fetching crypto with the highest normalized range for date: {}&quot;, date);</span>
+
+        // Calculate the start and end of the specified date in epoch milliseconds
+<span class="fc" id="L199">        long startOfDay = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();</span>
+<span class="fc" id="L200">        long endOfDay = date.atTime(23, 59, 59, 999_999_999).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();</span>
+
+        // Pass the calculated timestamps to the repository method
+<span class="fc" id="L203">        List&lt;Object[]&gt; results = cryptoPriceRepository.findNormalizedRangeForDate(startOfDay, endOfDay);</span>
+
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">        if (results.isEmpty()) {</span>
+<span class="nc" id="L206">            logger.error(&quot;No price data found for the given date: {}&quot;, date);</span>
+<span class="nc" id="L207">            throw new ResourceNotFoundException(&quot;No crypto data found for the given date.&quot;);</span>
+        }
+
+<span class="fc" id="L210">        return results.stream()</span>
+<span class="fc" id="L211">                .map(result -&gt; {</span>
+<span class="fc" id="L212">                    String symbol = (String) result[0];</span>
+<span class="fc" id="L213">                    BigDecimal minPrice = (BigDecimal) result[1];</span>
+<span class="fc" id="L214">                    BigDecimal maxPrice = (BigDecimal) result[2];</span>
+
+                    // Calculate the normalized range: (max - min) / min, handling any cases where minPrice is 0
+<span class="fc" id="L217">                    BigDecimal normalizedRange = BigDecimal.ZERO;</span>
+<span class="pc bpc" id="L218" title="1 of 2 branches missed.">                    if (minPrice.compareTo(BigDecimal.ZERO) &gt; 0) {</span>
+<span class="fc" id="L219">                        normalizedRange = maxPrice.subtract(minPrice).divide(minPrice, 8, RoundingMode.HALF_UP);</span>
+                    }
+
+<span class="fc" id="L222">                    return new CryptoNormalizedRange(symbol, normalizedRange);</span>
+                })
+<span class="fc" id="L224">                .max(Comparator.comparing(CryptoNormalizedRange::getNormalizedRange))</span>
+<span class="pc" id="L225">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;No crypto data with a valid normalized range found for the given date.&quot;));</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
