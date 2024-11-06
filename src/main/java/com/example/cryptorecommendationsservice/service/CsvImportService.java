@@ -1,9 +1,9 @@
 package com.example.cryptorecommendationsservice.service;
 
 import com.example.cryptorecommendationsservice.model.Crypto;
-import com.example.cryptorecommendationsservice.model.CryptoPrice;
 import com.example.cryptorecommendationsservice.repository.CryptoPriceRepository;
 import com.example.cryptorecommendationsservice.repository.CryptoRepository;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +39,7 @@ public class CsvImportService {
      * @param inputStream The InputStream containing CSV data.
      * @throws RuntimeException if an error occurs while processing the CSV file.
      */
+    @Transactional
     public void importCryptoData(InputStream inputStream) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
             String line;
@@ -48,27 +49,27 @@ public class CsvImportService {
                     continue;
                 }
 
-                // Call parseAndSaveLine to process and save each CSV line
-                parseAndSaveLine(line);
+                // Call parseAndUpsertLine to process each CSV line
+                parseAndUpsertLine(line);
             }
         } catch (Exception e) {
             logger.error("Error processing CSV file: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to process CSV file", e); // Rethrow as a runtime exception
+            throw new RuntimeException("Failed to process CSV file", e);
         }
     }
 
     /**
-     * Parses a line from the CSV file and saves the corresponding cryptocurrency data.
+     * Parses a line from the CSV file and inserts or updates the corresponding cryptocurrency data.
      *
      * @param line The line from the CSV file.
-     * @throws IllegalArgumentException if the line does not contain the required number of columns or if parsing fails.
      */
-    private void parseAndSaveLine(String line) {
+    private void parseAndUpsertLine(String line) {
         String[] columns = line.split(",");
 
         // Validate column count
         if (columns.length < 3) {
-            throw new IllegalArgumentException("Line does not contain the required number of columns (3)");
+            logger.error("Line does not contain the required number of columns (3): {}", line);
+            return; // Skip this line
         }
 
         try {
@@ -76,31 +77,32 @@ public class CsvImportService {
             String symbol = parseString(columns[1].trim());
             BigDecimal price = parseBigDecimal(columns[2].trim());
 
-            // Check if crypto already exists; if not, create a new one
+            // Find or create the Crypto entity
             Crypto crypto = cryptoRepository.findBySymbol(symbol)
-                    .orElseGet(() -> {
-                        Crypto newCrypto = new Crypto();
-                        newCrypto.setSymbol(symbol);
-                        logger.info("Adding new crypto symbol to database: {}", symbol);
-                        return cryptoRepository.save(newCrypto);
-                    });
+                    .orElseGet(() -> createNewCrypto(symbol));
 
-            // Save the crypto price
-            CryptoPrice cryptoPrice = new CryptoPrice();
-            cryptoPrice.setTimestamp(timestamp);
-            cryptoPrice.setPrice(price);
-            cryptoPrice.setCrypto(crypto);
-
-            cryptoPriceRepository.save(cryptoPrice);
-            logger.info("Saved price data for crypto symbol {} at timestamp {} with price {}", symbol, timestamp, price);
+            // Upsert the price for the given crypto
+            cryptoPriceRepository.upsertCryptoPrice(timestamp, price, symbol);
+            logger.info("Upserted price for crypto symbol {} at timestamp {} with price {}", symbol, timestamp, price);
 
         } catch (IllegalArgumentException e) {
-            logger.error("Error processing line: {}", line, e);
-            throw e; // Rethrow to indicate a parsing error
+            logger.error("Error parsing line: {}. Skipping this line. Error: {}", line, e.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected error while processing line: {}", line, e);
-            throw new RuntimeException("Failed to process line: " + line, e);
+            logger.error("Unexpected error while processing line: {}. Skipping this line. Error: {}", line, e.getMessage(), e);
         }
+    }
+
+    /**
+     * Creates a new Crypto entity and saves it to the repository.
+     *
+     * @param symbol The symbol of the cryptocurrency.
+     * @return The saved Crypto entity.
+     */
+    private Crypto createNewCrypto(String symbol) {
+        Crypto newCrypto = new Crypto();
+        newCrypto.setSymbol(symbol);
+        logger.info("Adding new crypto symbol to database: {}", symbol);
+        return cryptoRepository.save(newCrypto);
     }
 
     /**

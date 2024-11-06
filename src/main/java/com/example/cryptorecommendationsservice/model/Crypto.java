@@ -1,9 +1,9 @@
 package com.example.cryptorecommendationsservice.model;
 
-import java.util.List;
-
 import jakarta.persistence.*;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 @Entity

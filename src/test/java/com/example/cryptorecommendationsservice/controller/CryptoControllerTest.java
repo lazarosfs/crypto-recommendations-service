@@ -1,4 +1,5 @@
 package com.example.cryptorecommendationsservice.controller;
+
 import com.example.cryptorecommendationsservice.repository.CryptoPriceRepository;
 import com.example.cryptorecommendationsservice.repository.CryptoRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,25 +60,6 @@ public class CryptoControllerTest {
                 .andExpect(jsonPath("$.newestPrice", is(38415.79)))
                 .andExpect(jsonPath("$.minPrice", is(33276.59)))
                 .andExpect(jsonPath("$.maxPrice", is(47722.66)));
-    }
-
-    @Test
-    @Operation(summary = "Get aggregated stats for all cryptocurrencies")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Successfully retrieved the aggregated stats for all cryptocurrencies"),
-            @ApiResponse(responseCode = "404", description = "No price data found for any cryptocurrency")
-    })
-    public void testGetAllCryptoStats() throws Exception {
-        mockMvc.perform(get("/api/crypto/all-stats")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$", hasSize(5)))
-                .andExpect(jsonPath("$[0].symbol", is("ETH"))) // Assuming sorted by normalized range
-                .andExpect(jsonPath("$[1].symbol", is("XRP")))
-                .andExpect(jsonPath("$[2].symbol", is("DOGE")))
-                .andExpect(jsonPath("$[3].symbol", is("LTC")))
-                .andExpect(jsonPath("$[4].symbol", is("BTC")));
     }
 
     @Test

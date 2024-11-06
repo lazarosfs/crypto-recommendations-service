@@ -1,7 +1,6 @@
 package com.example.cryptorecommendationsservice.service;
 
-import com.example.cryptorecommendationsservice.dto.CryptoNormalizedRange;
-import com.example.cryptorecommendationsservice.dto.CryptoStatsDTO;
+import com.example.cryptorecommendationsservice.dto.CryptoNormalizedRangeDTO;
 import com.example.cryptorecommendationsservice.dto.CryptoStatsSimpleDTO;
 import com.example.cryptorecommendationsservice.exception.ResourceNotFoundException;
 import com.example.cryptorecommendationsservice.model.Crypto;
@@ -61,7 +60,7 @@ public class CryptoService {
      * Fetches the oldest, newest, minimum, and maximum prices for a specific crypto symbol.
      *
      * @param symbol The crypto symbol.
-     * @return CryptoStatsDTO containing stats for the specified symbol.
+     * @return CryptoStatsSimpleDTO containing stats for the specified symbol.
      */
     @Operation(summary = "Get stats for a specific crypto symbol")
     public CryptoStatsSimpleDTO getCryptoStats(String symbol) {
@@ -94,7 +93,6 @@ public class CryptoService {
 
             logger.debug("Stats for {}: oldest={}, newest={}, min={}, max={}", fetchedSymbol, oldestPrice, newestPrice, minPrice, maxPrice);
 
-            // Return the DTO with normalizedRange set to null
             return new CryptoStatsSimpleDTO(fetchedSymbol, oldestPrice, newestPrice, minPrice, maxPrice);
         } catch (ArrayIndexOutOfBoundsException | ClassCastException e) {
             logger.error("Data format error for crypto stats: {}", e.getMessage(), e);
@@ -102,59 +100,34 @@ public class CryptoService {
         }
     }
 
-    /**
-     * Fetches aggregated stats (min, max, oldest, newest prices) for all cryptos.
-     *
-     * @return List of CryptoStatsDTO for all cryptos.
-     */
-    @Operation(summary = "Get aggregated stats for all cryptos")
-    public List<CryptoStatsDTO> getAllCryptoStats() {
-        logger.info("Fetching aggregated stats for all cryptos");
+    public List<CryptoNormalizedRangeDTO> getAllCryptoStats() {
+        logger.info("Fetching normalizedRange for all cryptos");
 
-        List<Object[]> results = cryptoPriceRepository.findAllStats();
+        List<Object[]> results = cryptoPriceRepository.findNormalizedAllStats();
 
         if (results.isEmpty()) {
             logger.error("No price data found for any crypto");
             throw new ResourceNotFoundException("No crypto data found.");
         }
 
-        // Map each result row to a CryptoStatsDTO
+        // Map each result row to a CryptoNormalizedRange
         return results.stream()
-                .map(this::getCryptoStatsDTO)
-                .sorted(Comparator.comparing(CryptoStatsDTO::getNormalizedRange).reversed()) // Sort by normalized range in descending order
+                .map(this::mapToCryptoNormalizedRange)  // Correct method reference
+                .sorted(Comparator.comparing(CryptoNormalizedRangeDTO::getNormalizedRange).reversed()) // Sort by normalized range in descending order
                 .collect(Collectors.toList());
     }
 
     /**
-     * Converts an array of database query results into a CryptoStatsDTO.
+     * Maps an Object[] array from the query result to a CryptoNormalizedRange instance.
      *
-     * @param result An array of objects representing the query result, expected to contain:
-     *               - [0] String symbol
-     *               - [1] BigDecimal minPrice
-     *               - [2] BigDecimal maxPrice
-     *               - [3] BigDecimal oldestPrice
-     *               - [4] BigDecimal newestPrice
-     *               - [5] BigDecimal normalizedRange
-     * @return A CryptoStatsDTO object populated with the data from the result array.
-     * @throws ClassCastException if the data types in the result array do not match the expected types.
-     * @throws ResourceNotFoundException if there is a data format error when processing the result.
+     * @param result Object array containing symbol and normalized range.
+     * @return a CryptoNormalizedRange instance.
      */
-    private CryptoStatsDTO getCryptoStatsDTO(Object[] result) {
-        try {
-            String symbol = (String) result[0];
-            BigDecimal minPrice = (BigDecimal) result[1];
-            BigDecimal maxPrice = (BigDecimal) result[2];
-            BigDecimal oldestPrice = (BigDecimal) result[3];
-            BigDecimal newestPrice = (BigDecimal) result[4];
-            BigDecimal normalizedRange = (BigDecimal) result[5];
+    private CryptoNormalizedRangeDTO mapToCryptoNormalizedRange(Object[] result) {
+        String symbol = (String) result[0];
+        BigDecimal normalizedRange = (BigDecimal) result[1];
 
-            logger.debug("Stats for {}: oldest={}, newest={}, min={}, max={}, normalizedRange={}",
-                    symbol, oldestPrice, newestPrice, minPrice, maxPrice, normalizedRange);
-            return new CryptoStatsDTO(symbol, oldestPrice, newestPrice, minPrice, maxPrice, normalizedRange);
-        } catch (ClassCastException e) {
-            logger.error("Error casting result for crypto stats: {}", e.getMessage());
-            throw new ResourceNotFoundException("Data format error for crypto stats");
-        }
+        return new CryptoNormalizedRangeDTO(symbol, normalizedRange);
     }
 
     /**
@@ -163,25 +136,20 @@ public class CryptoService {
      * @return List of CryptoNormalizedRange sorted by normalized range.
      */
     @Operation(summary = "Get all cryptos sorted by normalized range (max - min / min)")
-    public List<CryptoNormalizedRange> getCryptosSortedByNormalizedRange() {
+    public List<CryptoNormalizedRangeDTO> getCryptosSortedByNormalizedRange() {
         logger.info("Calculating normalized range for all cryptos");
 
-        List<CryptoStatsDTO> statsList = getAllCryptoStats();
+        List<CryptoNormalizedRangeDTO> statsList = getAllCryptoStats();
 
         return statsList.stream()
                 .map(stats -> {
-                    BigDecimal minPrice = stats.getMinPrice();
-                    BigDecimal maxPrice = stats.getMaxPrice();
+                    BigDecimal normalizedRange = stats.getNormalizedRange();
+                    String symbol = stats.getSymbol();
 
-                    // Calculate normalized range: (max - min) / min
-                    BigDecimal normalizedRange = (minPrice.compareTo(BigDecimal.ZERO) > 0) ?
-                            maxPrice.subtract(minPrice).divide(minPrice, 8, RoundingMode.HALF_UP) :
-                            BigDecimal.ZERO;
-
-                    logger.debug("Normalized range for {}: {}", stats.getSymbol(), normalizedRange);
-                    return new CryptoNormalizedRange(stats.getSymbol(), normalizedRange);
+                    logger.debug("Normalized range for {}: {}", symbol, normalizedRange);
+                    return new CryptoNormalizedRangeDTO(symbol, normalizedRange);
                 })
-                .sorted(Comparator.comparing(CryptoNormalizedRange::getNormalizedRange).reversed())
+                .sorted(Comparator.comparing(CryptoNormalizedRangeDTO::getNormalizedRange).reversed())
                 .collect(Collectors.toList());
     }
 
@@ -192,7 +160,7 @@ public class CryptoService {
      * @return CryptoNormalizedRange for the crypto with the highest normalized range on the specified date.
      */
     @Operation(summary = "Get the crypto with the highest normalized range for a specific date")
-    public CryptoNormalizedRange getHighestNormalizedRangeForDate(LocalDate date) {
+    public CryptoNormalizedRangeDTO getHighestNormalizedRangeForDate(LocalDate date) {
         logger.info("Fetching crypto with the highest normalized range for date: {}", date);
 
         // Calculate the start and end of the specified date in epoch milliseconds
@@ -219,9 +187,9 @@ public class CryptoService {
                         normalizedRange = maxPrice.subtract(minPrice).divide(minPrice, 8, RoundingMode.HALF_UP);
                     }
 
-                    return new CryptoNormalizedRange(symbol, normalizedRange);
+                    return new CryptoNormalizedRangeDTO(symbol, normalizedRange);
                 })
-                .max(Comparator.comparing(CryptoNormalizedRange::getNormalizedRange))
+                .max(Comparator.comparing(CryptoNormalizedRangeDTO::getNormalizedRange))
                 .orElseThrow(() -> new ResourceNotFoundException("No crypto data with a valid normalized range found for the given date."));
     }
 

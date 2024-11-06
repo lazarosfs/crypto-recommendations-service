@@ -1,14 +1,10 @@
 package com.example.cryptorecommendationsservice.config;
 
 import com.example.cryptorecommendationsservice.filter.RateLimitingFilter;
-import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.time.Duration;
 
 import static java.time.Duration.ofSeconds;
 

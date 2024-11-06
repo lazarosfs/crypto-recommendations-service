@@ -31,19 +31,19 @@ The `CsvImportController::loadCsvFilesOnStartup` method loads initial data from 
 ## Building the Application
 To build the application, run the following command:
 ```
-mvn clean package
+./mvnw clean package
 ```
 
 ## Running Tests
 To run the tests, execute:
 ```
-mvn test
+./mvnw test
 ```
 
 ## Running the Application
 To run the application, you can either use the following command:
 ```
-mvn spring-boot:run
+./mvnw spring-boot:run
 ```
 or build the jar and run it with:
 ```
@@ -68,6 +68,13 @@ docker run -p 8080:8080 crypto-recommendations-service
      ```
      curl -X GET "http://localhost:8080/api/crypto/supported"
      ```
+1. **Normalized Range**
+    - **GET** `/api/crypto/normalized-range`
+    - Returns a sorted list of cryptos by normalized range.
+    - Example command:
+      ```
+      curl -X GET "http://localhost:8080/api/crypto/normalized-range"
+      ```
 
 1. **Crypto Stats**
    - **GET** `/api/crypto/{symbol}/stats`
@@ -75,14 +82,6 @@ docker run -p 8080:8080 crypto-recommendations-service
    - Example command:
      ```
      curl -X GET "http://localhost:8080/api/crypto/BTC/stats"
-     ```
-
-1. **All Crypto Stats**
-   - **GET** `/api/crypto/all-stats`
-   - Retrieves aggregated stats for all cryptos.
-   - Example command:
-     ```
-     curl -X GET "http://localhost:8080/api/crypto/all-stats"
      ```
 
 1. **Highest Normalized Range**
@@ -93,29 +92,22 @@ docker run -p 8080:8080 crypto-recommendations-service
      curl -X GET "http://localhost:8080/api/crypto/highest-normalized-range?date=2022-01-24"
      ```
 
-1. **Normalized Range**
-   - **GET** `/api/crypto/normalized-range`
-   - Returns a sorted list of cryptos by normalized range.
-   - Example command:
-     ```
-     curl -X GET "http://localhost:8080/api/crypto/normalized-range"
-     ```
 1. **Post Crypto Data**
    - **POST** `/api/import/crypto`
-   - Endpoint to additionally import cryptocurrency data from a CSV file.
+   - Endpoint to additionally import cryptocurrency data from a CSV file (price with same crypto-timestamp combination will be overwritten).
    - Example command:
      ```
-     curl -X POST "http://localhost:8080/api/import/crypto" -F "file=@path_to_your_file.csv"
+     curl -X POST "http://localhost:8080/api/import/crypto" -F "file=@./src/main/resources/csv/BTC_values.csv"
      ```
 
 ## Rate Limiting
-Rate limiting is implemented using Bucket4j. The service allows 20 requests per minute.
+Rate limiting is implemented using Bucket4j. The service allows 20 requests per minute per IP (set in RateLimitingFilter class).
 
 ## Swagger UI
 API documentation is available at: [Swagger UI](http://localhost:8080/swagger-ui/index.html)
 
 ## H2 Console
-Access the H2 console for debugging at: [H2 Console](http://localhost:8080/h2-console) (no password required).
+Access the H2 console for debugging at: [H2 Console](http://localhost:8080/h2-console) (no password required). Please delete any ~/test.mv.db files before starting the app to make sure you are not re-using an existing H2 db.
 
 ## Jacoco Coverage Report
 Jacoco is used for code coverage. The coverage report is automatically generated in `target/site/jacoco/index.html`.

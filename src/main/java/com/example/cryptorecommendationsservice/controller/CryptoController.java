@@ -1,7 +1,6 @@
 package com.example.cryptorecommendationsservice.controller;
 
-import com.example.cryptorecommendationsservice.dto.CryptoNormalizedRange;
-import com.example.cryptorecommendationsservice.dto.CryptoStatsDTO;
+import com.example.cryptorecommendationsservice.dto.CryptoNormalizedRangeDTO;
 import com.example.cryptorecommendationsservice.dto.CryptoStatsSimpleDTO;
 import com.example.cryptorecommendationsservice.service.CryptoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,7 +44,7 @@ public class CryptoController {
      * Endpoint to retrieve stats (oldest, newest, min, max prices) for a specific crypto symbol.
      *
      * @param symbol The crypto symbol.
-     * @return CryptoStatsDTO containing stats for the specified symbol.
+     * @return CryptoStatsSimpleDTO containing stats for the specified symbol.
      */
     @Operation(summary = "Get stats for a specific crypto", description = "Retrieves the oldest, newest, minimum, and maximum prices for a specified cryptocurrency symbol.")
     @ApiResponses(value = {
@@ -58,21 +57,6 @@ public class CryptoController {
     }
 
     /**
-     * Endpoint to retrieve aggregated stats for all cryptos.
-     *
-     * @return List of CryptoStatsDTO for all cryptos.
-     */
-    @Operation(summary = "Get aggregated stats for all cryptos", description = "Retrieves oldest, newest, minimum, and maximum prices for all supported cryptocurrencies.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Aggregated stats retrieved successfully"),
-            @ApiResponse(responseCode = "404", description = "No crypto data found")
-    })
-    @GetMapping("/all-stats")
-    public List<CryptoStatsDTO> getAllCryptoStats() {
-        return cryptoService.getAllCryptoStats();
-    }
-
-    /**
      * Endpoint to retrieve a sorted list of cryptos by normalized range (descending).
      *
      * @return List of CryptoNormalizedRange sorted by normalized range.
@@ -82,7 +66,7 @@ public class CryptoController {
             @ApiResponse(responseCode = "200", description = "Sorted list of cryptos by normalized range retrieved successfully")
     })
     @GetMapping("/normalized-range")
-    public List<CryptoNormalizedRange> getCryptosByNormalizedRange() {
+    public List<CryptoNormalizedRangeDTO> getCryptosByNormalizedRange() {
         return cryptoService.getCryptosSortedByNormalizedRange();
     }
 
@@ -98,7 +82,7 @@ public class CryptoController {
             @ApiResponse(responseCode = "404", description = "No crypto data found for the specified date")
     })
     @GetMapping("/highest-normalized-range")
-    public CryptoNormalizedRange getHighestNormalizedRangeForDate(
+    public CryptoNormalizedRangeDTO getHighestNormalizedRangeForDate(
             @Parameter(description = "Date for which to find the highest normalized range", example = "2023-01-01")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return cryptoService.getHighestNormalizedRangeForDate(date);

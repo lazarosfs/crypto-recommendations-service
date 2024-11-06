@@ -7,6 +7,9 @@ import java.math.BigDecimal;
 
 @Data
 @Entity
+@Table(name = "crypto_price", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"timestamp", "crypto_id"})
+})
 public class CryptoPrice {
 
     @Id
